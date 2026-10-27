@@ -1,0 +1,4937 @@
+{
+  "info": {
+    "_postman_id": "5b2d732c-b41a-4506-be74-965fe1f4d817",
+    "name": "FOFA API",
+    "description": "Postman collection for the FOFA cyberspace mapping API (https://en.fofa.info/api/v1), including ready-to-run hunting queries taken from the FofaInfo/Awesome-FOFA guides (https://github.com/FofaInfo/Awesome-FOFA).\n\n## Setup\n1. Select the **FOFA** environment (top-right). It holds `fofa_key`, which is sent automatically as the `key` query parameter through the collection-level API Key auth.\n2. Run **API Reference > Account Information** first to confirm the key works.\n\n## How queries work\n- Generic requests (API Reference folder) read the plain-text FOFA query from the collection variable `query`. The collection pre-request script Base64-encodes it (UTF-8, URL-safe) into `{{qbase64}}`.\n- Every saved hunting request has its own pre-request script with the plain query in `const q = String.raw`...``. Edit that line to change the query; the script encodes it for you.\n- Hunting requests use `full=true` because most IOCs in the guides are from 2023-2024 and fall outside FOFA's default one-year window.\n\n## Folders\n- **API Reference**: every documented endpoint.\n- **Fuzzy Search**: wildcard syntax (`*=` with `*` and `?`).\n- **Threat Intel Discovery Guide**: header, banner, port, JARM and certificate pivoting plus false-positive reduction.\n- **APT - COLDRIVER** and **APT - Sidewinder**: step-by-step IOC expansion exactly as in the guides.\n- **Other Guides**: ObserverStealer, APT Bitter, APT-C-23, Silver Fox, Ducktail, DeepSeek impersonation, certificate filtering, supply chain, beginner examples and FofaHub.\n\n## Limits and permissions\n- Keep the overall rate below 2 requests/second. Stats: 1 request every 5 s. Host: 1 request/s.\n- `size` max 10,000 (2,000 when fields include cert/banner, 500 when they include body).\n- Fuzzy search (`*=`) needs a Personal membership or higher (or F-points). Some fields (header_hash, product, icon_hash, body, fid...) need paid tiers; the default field sets here only use free fields.\n- Hunting results are leads, not verdicts: cross-check them on threat-intel platforms (VirusTotal, ThreatBook, Qianxin) as the guides recommend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "14395575"
+  },
+  "item": [
+    {
+      "name": "API Reference",
+      "item": [
+        {
+          "name": "Search All",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&page={{page}}&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{fields}}"
+                },
+                {
+                  "key": "page",
+                  "value": "{{page}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "GET /search/all - asset search with page-based pagination.\n\nSet the plain-text FOFA query in the `query` collection variable; it is Base64-encoded automatically.\n\nParameters: `qbase64` (required), `fields` (default host,ip,port), `page` (default 1), `size` (default 100, max 10,000), `full` (true = all history, false = last year), `r_type=json`."
+          },
+          "response": []
+        },
+        {
+          "name": "Search Next (continuous pagination)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && !j.error) {",
+                  "  if (j.next) {",
+                  "    pm.collectionVariables.set('next_id', j.next);",
+                  "    console.log('Next cursor saved to next_id: ' + j.next);",
+                  "  } else {",
+                  "    pm.collectionVariables.set('next_id', '');",
+                  "    console.log('End of results - next_id cleared.');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/next?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&next={{next_id}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "next"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "next",
+                  "value": "{{next_id}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "GET /search/next - cursor-based pagination that avoids data misalignment on large pulls.\n\nOn the first call leave `next_id` empty. The test script stores the returned cursor in `next_id`, so just send again for the next page. Clear `next_id` to restart."
+          },
+          "response": []
+        },
+        {
+          "name": "Search All - Static qbase64 example",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64=aXA9IjEwMy4zNS4xNjguMzgi&fields=host,ip,port,protocol,country_name,title&size=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "aXA9IjEwMy4zNS4xNjguMzgi"
+                },
+                {
+                  "key": "fields",
+                  "value": "host,ip,port,protocol,country_name,title"
+                },
+                {
+                  "key": "size",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "Documentation example with a fixed qbase64 for ip=\"103.35.168.38\" (does not use the `query` variable)."
+          },
+          "response": []
+        },
+        {
+          "name": "Statistic Aggregation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/stats?qbase64={{qbase64}}&fields={{stats_fields}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "stats"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{stats_fields}}"
+                }
+              ]
+            },
+            "description": "GET /search/stats - top 5 values of each requested field for the query. Limit: 1 request every 5 s.\n\nSupported fields: protocol, domain, port, title, os, server, country, asn, org, asset_type, fid, icp.\n\n`distinct` returns unique counts for server, domain, title, fid."
+          },
+          "response": []
+        },
+        {
+          "name": "Host Aggregation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/host/{{host}}?detail=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "host",
+                "{{host}}"
+              ],
+              "query": [
+                {
+                  "key": "detail",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "GET /host/{host} - host summary (ports, protocols, domains, categories, products). Limit: 1 request/s."
+          },
+          "response": []
+        },
+        {
+          "name": "Host Aggregation (detail)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/host/{{host}}?detail=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "host",
+                "{{host}}"
+              ],
+              "query": [
+                {
+                  "key": "detail",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "GET /host/{host}?detail=true - per-port detail with products, category, level (5 application, 4 support, 3 service, 2 system, 1 hardware, 0 N/A) and hardware flag."
+          },
+          "response": []
+        },
+        {
+          "name": "Account Information",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && !j.error) {",
+                  "  console.log(`User: ${j.username} | VIP: ${j.isvip} (level ${j.vip_level}) | Remaining queries: ${j.remain_api_query} | Remaining data: ${j.remain_api_data}`);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/info/my",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "info",
+                "my"
+              ]
+            },
+            "description": "GET /info/my - account status, VIP level, F-points and remaining API quota. Does not consume queries."
+          },
+          "response": []
+        }
+      ],
+      "description": "Every endpoint from the FOFA API documentation. Generic requests use the `query` collection variable (plain text)."
+    },
+    {
+      "name": "Fuzzy Search",
+      "item": [
+        {
+          "name": "Exact host (baseline)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`host=\"test.baidu.com\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Baseline exact match before applying wildcards."
+          },
+          "response": []
+        },
+        {
+          "name": "Subdomain starting with 'test'",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`host*=\"test*.baidu.com\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Subdomains of baidu.com that start with `test` followed by any characters."
+          },
+          "response": []
+        },
+        {
+          "name": "Subdomain containing 'test'",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`host*=\"*test*.baidu.com\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Subdomains of baidu.com with `test` anywhere (characters before and/or after)."
+          },
+          "response": []
+        },
+        {
+          "name": "'test' + exactly one character",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`host*=\"test?.baidu.com\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "`?` matches exactly one character: test1, testa, etc."
+          },
+          "response": []
+        },
+        {
+          "name": "Five-character subdomains",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`host*=\"?????.baidu.com\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Subdomains of baidu.com made of exactly five characters."
+          },
+          "response": []
+        },
+        {
+          "name": "Multiple wildcards combined",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`host*=\"test*.baidu.com.*\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "`test*` subdomains of baidu.com followed by any suffix after `.baidu.com.` (e.g. ports or extra labels)."
+          },
+          "response": []
+        },
+        {
+          "name": "Any host containing 'test'",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`host*=\"*test*\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Every host with `test` anywhere. Very broad; useful for edge-asset discovery."
+          },
+          "response": []
+        },
+        {
+          "name": "MySQL - all versions (baseline)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`banner=\"mysql version\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields=ip,port,protocol,country,banner&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "ip,port,protocol,country,banner"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Over 10 million results in one year according to the guide. Narrow it with the version wildcards below."
+          },
+          "response": []
+        },
+        {
+          "name": "MySQL - version 5.?.*",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`banner=\"mysql version\" && banner*=\"5.?.*\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields=ip,port,protocol,country,banner&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "ip,port,protocol,country,banner"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "MySQL banners matching any 5.x.y version."
+          },
+          "response": []
+        },
+        {
+          "name": "MySQL - version 5.5.4*",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`banner=\"mysql version\" && banner*=\"5.5.4*\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields=ip,port,protocol,country,banner&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "ip,port,protocol,country,banner"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "MySQL banners for version 5.5.4 and later patch releases (5.5.40+)."
+          },
+          "response": []
+        },
+        {
+          "name": "All SNMP protocol versions",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`protocol*=\"snmp*\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields=ip,port,protocol,country&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "ip,port,protocol,country"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Matches snmp, snmpv2, snmpv3, etc. in one query."
+          },
+          "response": []
+        },
+        {
+          "name": "Cloud provider by partial name",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`cloud_name*=\"Cloud*\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Find a cloud provider when you only remember part of the name (e.g. Cloudflare)."
+          },
+          "response": []
+        },
+        {
+          "name": "Four-digit ports on a domain",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`domain=\"fofa.info\" && port*=\"????\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Assets of fofa.info listening on any four-digit port."
+          },
+          "response": []
+        }
+      ],
+      "description": "Source: *The correct way to use Fuzzy Search in FOFA*.\n\nFuzzy search is enabled with `*=` (the operator itself is not a wildcard). Inside the value:\n- `*` matches zero, one or many characters\n- `?` matches exactly one character\n\nOriginally built to fix incomplete word segmentation (e.g. a MySQL banner containing `0ubuntu0` would not match `ubuntu`).\n\nRequires Personal membership or higher, or F-points."
+    },
+    {
+      "name": "Threat Intel Discovery Guide",
+      "item": [
+        {
+          "name": "Header pivot - BLNWX redirect template",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`org=\"BLNWX\" && header=\"Location: http://www.google.com\" && header=\"Server: nginx/1.18.0 (Ubuntu)\" && domain!=\"\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Header-based association from HEDnsExtractor + httpx output: same ASN org, redirect to google.com, nginx 1.18.0 on Ubuntu, non-empty domain. The guide reports 33 unique IPs."
+          },
+          "response": []
+        },
+        {
+          "name": "Cobalt Strike team servers (JARM cross-check)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`app=\"COBALTSTRIKE-Team Server\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Used in the guide to show that a C2 JARM match does not mean the service is C2. Compare the JARM values returned here with a pure JARM search: JARM is only an auxiliary signal."
+          },
+          "response": []
+        },
+        {
+          "name": "Port pivot - router icon_hash",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`icon_hash=\"-1438236046\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Step 1 of the port-based example: collect the router family through its favicon hash. Contains false positives on its own."
+          },
+          "response": []
+        },
+        {
+          "name": "Port pivot - compromised router check (per IP)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ip = pm.variables.get('host');",
+                  "const q = `ip=\"${ip}\" && port=\"22\" && banner=\"SSH-2.0-OpenSSH_6.7p2\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields=ip,port,protocol,banner&size={{size}}&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "ip,port,protocol,banner"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Step 2: for each IP from the previous request, check whether port 22 is open with banner `SSH-2.0-OpenSSH_6.7p2` (the APT's implant signature). Set the `host` collection variable to the IP to test. The guide does this in bulk with `fofa search -i ips.txt --template ...` (GoFOFA)."
+          },
+          "response": []
+        },
+        {
+          "name": "False positive example - generic 404 banner",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`banner=\"404 Not Found\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size=10&full={{full}}&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                },
+                {
+                  "key": "full",
+                  "value": "{{full}}"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Anti-pattern: returns hundreds of millions of assets (316,493,580 in the guide). A feature without uniqueness cannot attribute anything. Use Statistic Aggregation if you only want the count."
+          },
+          "response": []
+        },
+        {
+          "name": "Path collision candidates - Ducktail IIS C2",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`header=\"404 Not Found\" && header=\"Transfer-Encoding: chunked\" && header=\"Server: Microsoft-IIS\" && icon_hash=\"\" && title=\"\" && header_hash=\"-324809210\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Template with a high false-positive rate (tens of thousands). The guide pipes the results to httpx and keeps hosts where `/api/check` returns 200 with content length 355:\n\n`... | httpx -path /api/check -sc -cl -mc 200 -ml 355`\n\nNote: `header_hash` filtering requires a Personal membership or higher."
+          },
+          "response": []
+        },
+        {
+          "name": "Verification example - OceanLotus (APT32)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`banner=\"HTTP/1.1 404 Not Found\" && banner=\"Server: nginx\" && (port=\"4443\" || port=\"8443\") && banner=\"Content-Length: 146\" && banner=\"Content-Type: text/html; charset=utf-8\" && jarm=\"21d19d00021d21d00042d43d0000005ad20eceaf7f71ae0887d2ff117bf97f\" && country!=\"CN\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Verification case: 6 IPs found; 4 were tagged OceanLotus on Qianxin/ThreatBook, so the syntax is considered highly credible. `country!=\"CN\"` drops domestic false positives."
+          },
+          "response": []
+        },
+        {
+          "name": "IOC host lookup - OceanLotus 45.41.204.18",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/host/45.41.204.18?detail=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "host",
+                "45.41.204.18"
+              ],
+              "query": [
+                {
+                  "key": "detail",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Host Aggregation on the initial OceanLotus IOC from the guide (tagged by ThreatBook and Qianxin)."
+          },
+          "response": []
+        }
+      ],
+      "description": "Source: *A Comprehensive Guide to Threat Intelligence Discovery Using FOFA*.\n\nWorkflow: input source (known group or known IOC) -> confirm attribution on TI platforms -> extract common IOC features -> build FOFA syntax -> remove false positives -> verify.\n\nFeature priority: 1) certificate, 2) TLS fingerprint (JARM / JA3S), 3) HTTP header, 4) banner. Ports help for hard-coded RAT callbacks.\n\nFalse-positive signals: tens of thousands of results, domestic IPs for a foreign group, last-update dates far from the activity window, and under 30% coverage on TI platforms. Fix by adding fields / intersecting clues, path collision (httpx), or reverse engineering."
+    },
+    {
+      "name": "APT - COLDRIVER",
+      "item": [
+        {
+          "name": "1. Seed C2 host lookup",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/host/45.133.216.15?detail=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "host",
+                "45.133.216.15"
+              ],
+              "query": [
+                {
+                  "key": "detail",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Inspect the published C2: port 3000, a TLS alert banner and a certificate are the only usable features."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Seed C2 search",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`ip=\"45.133.216.15\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}},banner&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}},banner"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Full asset record for the C2, including the certificate fields."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Expansion 1 - banner + port",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`banner=\"\\x15\\x03\\x03\\x00\\x02\\x022\" && port=\"3000\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "TLS alert banner on port 3000: 17 records / 16 IPs in the guide, with obvious false positives."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Expansion 1 - add default cert org",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`banner=\"\\x15\\x03\\x03\\x00\\x02\\x022\" && port=\"3000\" && cert=\"Internet Widgits Pty Ltd\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Adds the OpenSSL default organization `Internet Widgits Pty Ltd`: 5 records."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Expansion 2 - cert org + validity date",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`cert=\"Internet Widgits Pty Ltd\" && cert=\"2023-06-23 15:59 UTC\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Pivot on the certificate validity timestamp plus the default org: 6 IPs with highly consistent certificates."
+          },
+          "response": []
+        },
+        {
+          "name": "6. Final rule (intersection)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`banner=\"\\x15\\x03\\x03\\x00\\x02\\x022\" && port=\"3000\" && cert=\"Internet Widgits Pty Ltd\" && cert=\"2023-06-23 15:59 UTC\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Intersection of both expansions. Expected: 45.133.216.15:3000 (known C2), 95.164.17.94:3000 and 89.19.211.240:3000 (suspicious)."
+          },
+          "response": []
+        },
+        {
+          "name": "7. Suspicious host - 95.164.17.94",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/host/95.164.17.94?detail=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "host",
+                "95.164.17.94"
+              ],
+              "query": [
+                {
+                  "key": "detail",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Suspicious IP from the final rule. Not tagged on VirusTotal/Qianxin/ThreatBook at the time of the guide."
+          },
+          "response": []
+        },
+        {
+          "name": "8. Suspicious host - 89.19.211.240",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/host/89.19.211.240?detail=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "host",
+                "89.19.211.240"
+              ],
+              "query": [
+                {
+                  "key": "detail",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Suspicious IP from the final rule. Not tagged on VirusTotal/Qianxin/ThreatBook at the time of the guide."
+          },
+          "response": []
+        }
+      ],
+      "description": "Source: *Practical FOFA Asset Discovery: COLDRIVER*.\n\nCOLDRIVER (UNC4057, Star Blizzard, Callisto) is a Russian group doing credential phishing against NGOs, former intelligence/military officers and NATO government figures.\n\nInitial IOC (Google TAG, 18 Jan 2024): C2 `45.133.216.15:3000`, path `/ws`.\n\nRun the requests in order: each step adds a feature to cut false positives. Final result in the guide: 3 IPs (the known C2 + 2 suspicious), all seen Aug-Oct 2023, matching the group's active window."
+    },
+    {
+      "name": "APT - Sidewinder",
+      "item": [
+        {
+          "name": "IOC 1 - neger.site",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`domain=\"neger.site\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}},header&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}},header"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Seed IOC from maltrail (Bridewell report)."
+          },
+          "response": []
+        },
+        {
+          "name": "IOC 2 - semain.tech",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`domain=\"semain.tech\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}},header&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}},header"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Seed IOC from maltrail (Bridewell report)."
+          },
+          "response": []
+        },
+        {
+          "name": "IOC 3 - aliit.org",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`domain=\"aliit.org\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}},header&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}},header"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Seed IOC from maltrail. Differs from the first two: Server nginx/1.23.2 and Content-Length 555."
+          },
+          "response": []
+        },
+        {
+          "name": "Shared JARM only (too broad)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`jarm=\"3fd3fd0003fd3fd21c3fd3fd3fd3fd703dc1bf20eb9604decefea997eabff7\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size=10&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "The three IOCs share this JARM, but alone it returns about 247,319 assets. Do not use it by itself."
+          },
+          "response": []
+        },
+        {
+          "name": "JARM + 404 nginx headers",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`jarm=\"3fd3fd0003fd3fd21c3fd3fd3fd3fd703dc1bf20eb9604decefea997eabff7\" && header=\"HTTP/1.1 404 Not Found\" && header=\"Server: nginx\" && header=\"Content-Type: text/html\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Adds the headers shared by neger.site and semain.tech. Smaller, but the region ranking still shows noise."
+          },
+          "response": []
+        },
+        {
+          "name": "Rule 1 - JARM + headers + Content-Length 183/535",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`jarm=\"3fd3fd0003fd3fd21c3fd3fd3fd3fd703dc1bf20eb9604decefea997eabff7\" && header=\"HTTP/1.1 404 Not Found\" && header=\"Server: nginx\" && header=\"Content-Type: text/html\" && (header=\"Content-Length: 183\" || header=\"Content-Length: 535\")`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Final rule derived from neger.site and semain.tech."
+          },
+          "response": []
+        },
+        {
+          "name": "Rule 1 - inclusion check with seed IOCs",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`jarm=\"3fd3fd0003fd3fd21c3fd3fd3fd3fd703dc1bf20eb9604decefea997eabff7\" && header=\"HTTP/1.1 404 Not Found\" && header=\"Server: nginx\" && header=\"Content-Type: text/html\" && (header=\"Content-Length: 183\" || header=\"Content-Length: 535\") && (domain=\"neger.site\" || domain=\"semain.tech\")`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Sanity check: Rule 1 restricted to the seed domains must return them, proving the rule contains the original IOCs."
+          },
+          "response": []
+        },
+        {
+          "name": "Rule 2 - aliit.org variant (nginx/1.23.2, CL 555)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`header=\"HTTP/1.1 404 Not Found\" && header=\"Server: nginx/1.23.2\" && header=\"Content-Type: text/html\" && header=\"Content-Length: 555\" && jarm=\"3fd3fd0003fd3fd21c3fd3fd3fd3fd703dc1bf20eb9604decefea997eabff7\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Rule derived from aliit.org."
+          },
+          "response": []
+        },
+        {
+          "name": "IOC 4 - direct888.net",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`domain=\"direct888.net\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}},header&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}},header"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Second clue (@Cyberteam008). Different JARM, Content-Length 228."
+          },
+          "response": []
+        },
+        {
+          "name": "IOC 5 - fia-gov.net",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`domain=\"fia-gov.net\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}},header&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}},header"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Second clue (@Cyberteam008). Spoofs a Pakistani government agency domain."
+          },
+          "response": []
+        },
+        {
+          "name": "Rule 3 - second JARM + Content-Length 228",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`jarm=\"1dd40d40d00040d1dc1dd40d1dd40de9ab649921aa9add8c37a8978aa3ea88\" && header=\"Content-Length: 228\" && header=\"HTTP/1.1 404 Not Found\" && header=\"Server: nginx\"`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Rule derived from direct888.net and fia-gov.net."
+          },
+          "response": []
+        },
+        {
+          "name": "All rules combined",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`(jarm=\"3fd3fd0003fd3fd21c3fd3fd3fd3fd703dc1bf20eb9604decefea997eabff7\" && header=\"HTTP/1.1 404 Not Found\" && header=\"Server: nginx\" && header=\"Content-Type: text/html\" && (header=\"Content-Length: 183\" || header=\"Content-Length: 535\")) || (header=\"HTTP/1.1 404 Not Found\" && header=\"Server: nginx/1.23.2\" && header=\"Content-Type: text/html\" && header=\"Content-Length: 555\" && jarm=\"3fd3fd0003fd3fd21c3fd3fd3fd3fd703dc1bf20eb9604decefea997eabff7\") || (jarm=\"1dd40d40d00040d1dc1dd40d1dd40de9ab649921aa9add8c37a8978aa3ea88\" && header=\"Content-Length: 228\" && header=\"HTTP/1.1 404 Not Found\" && header=\"Server: nginx\")`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "{{intel_fields}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                },
+                {
+                  "key": "full",
+                  "value": "true"
+                },
+                {
+                  "key": "r_type",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Rules 1, 2 and 3 in a single OR query, for monitoring the whole infrastructure at once."
+          },
+          "response": []
+        },
+        {
+          "name": "Rule 1 - stats by country / ASN / domain",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = String.raw`jarm=\"3fd3fd0003fd3fd21c3fd3fd3fd3fd703dc1bf20eb9604decefea997eabff7\" && header=\"HTTP/1.1 404 Not Found\" && header=\"Server: nginx\" && header=\"Content-Type: text/html\" && (header=\"Content-Length: 183\" || header=\"Content-Length: 535\")`;",
+                  "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/stats?qbase64={{qbase64}}&fields=country,asn,org,domain,port",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search",
+                "stats"
+              ],
+              "query": [
+                {
+                  "key": "qbase64",
+                  "value": "{{qbase64}}"
+                },
+                {
+                  "key": "fields",
+                  "value": "country,asn,org,domain,port"
+                }
+              ]
+            },
+            "description": "Statistic Aggregation over Rule 1 to review the regional spread and spot noise (1 request every 5 s)."
+          },
+          "response": []
+        }
+      ],
+      "description": "Source: *Practical FOFA Asset Expansion: Sidewinder APT*.\n\nSeed IOCs: neger.site, semain.tech, aliit.org (maltrail / Bridewell) and direct888.net, fia-gov.net (@Cyberteam008).\n\nMethod: look up each IOC, notice the shared JARM, discard JARM alone (247,319 results), then add the common 404 nginx headers and Content-Length values. The three final rules returned 193 results in the guide; coverage was Qianxin 137, ThreatBook 118, VirusTotal 138, and 24 not covered by any.\n\nThe group spoofs government domains (`*fia-gov*`, `*mofa-gov*`, `*govpk*`) and uses typo/shifted names (`direct888`, `directt88`, `downlod`)."
+    },
+    {
+      "name": "Other Guides",
+      "item": [
+        {
+          "name": "ObserverStealer",
+          "item": [
+            {
+              "name": "Panel favicon hash",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`icon_hash=\"-1529439559\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "ObserverStealer panel favicon."
+              },
+              "response": []
+            },
+            {
+              "name": "Seed C2 IP",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`ip=\"5.42.64.13\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}},banner&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}},banner"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Seed C2 address from the sample."
+              },
+              "response": []
+            },
+            {
+              "name": "CORS header + 404",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`banner=\"access-control-expose-headers: Content-Type, Authorization\" && banner=\"404 Not Found\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Distinctive exposed-headers value on 404 responses."
+              },
+              "response": []
+            },
+            {
+              "name": "CORS header + 404 + Content-Length 40",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`banner=\"access-control-expose-headers: Content-Type, Authorization\" && banner=\"404 Not Found\" && banner=\"Content-Length: 40\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Refined C2 rule with the exact body length."
+              },
+              "response": []
+            },
+            {
+              "name": "myLinx title on port 80",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`title==\"myLinx\" && port=\"80\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Exact-title match (`==`) on the related myLinx page."
+              },
+              "response": []
+            }
+          ],
+          "description": "Source: *Analysis and Tracing of the ObserverStealer*. Infostealer panel tracking from favicon, seed IP and response headers."
+        },
+        {
+          "name": "APT Bitter",
+          "item": [
+            {
+              "name": "Base template",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`header='Alt-Svc: h3=\":443\"' && title=\"403 Forbidden\" && header=\"Content-Length: 1229\" && port=\"443\" && server=\"LiteSpeed\" && cert.issuer.cn=\"R3\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Title 403 Forbidden, LiteSpeed, Content-Length 1229, Alt-Svc h3, Let's Encrypt R3 issuer."
+              },
+              "response": []
+            },
+            {
+              "name": "Refined template (valid cert, domain, CNAME, after date)",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`header='Alt-Svc: h3=\":443\"' && title=\"403 Forbidden\" && header=\"Content-Length: 1229\" && port=\"443\" && server=\"LiteSpeed\" && cert.issuer.cn=\"R3\" && domain!=\"\" && cert.is_valid=true && cert.is_expired=false && icon_hash=\"\" && cert.subject.cn*=\"*.*\" && cname!=\"\" && after=\"2023-08-01\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Adds: non-empty domain, valid and unexpired cert, empty favicon, wildcard-matched cert subject (fuzzy, Personal+), non-empty CNAME and only data after 2023-08-01. Update `after` to a recent date for current hunting."
+              },
+              "response": []
+            },
+            {
+              "name": "Refined template + seed host check",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`header='Alt-Svc: h3=\":443\"' && title=\"403 Forbidden\" && header=\"Content-Length: 1229\" && port=\"443\" && server=\"LiteSpeed\" && cert.issuer.cn=\"R3\" && domain!=\"\" && cert.is_valid=true && cert.is_expired=false && icon_hash=\"\" && cert.subject.cn*=\"*.*\" && cname!=\"\" && after=\"2023-08-01\" && host=\"webandersondesign.com\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Confirms the refined template still contains the seed host webandersondesign.com."
+              },
+              "response": []
+            }
+          ],
+          "description": "Source: *Conducting APT Bitter Tracking Operation Using FOFA*. LiteSpeed 403 pages with HTTP/3, Let's Encrypt R3 certificates, and strict filters for valid, domain-bound, recently seen assets."
+        },
+        {
+          "name": "APT-C-23 Android Malware",
+          "item": [
+            {
+              "name": "Download page structure",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`status_code=\"200\" && body=\"name=\\\"keywords\\\"\" && body=\"name=\\\"description\\\"\" && body=\"rel=\\\"canonical\\\"\" && (body=\"onclick=\\\"getApp()\\\"\" || body=\"onclick=\\\"getAppVersionOne()\\\"\")`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Pages with SEO meta tags and the getApp() download button."
+              },
+              "response": []
+            },
+            {
+              "name": "Download page structure + script names",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`status_code=\"200\" && body=\"name=\\\"keywords\\\"\" && body=\"name=\\\"description\\\"\" && body=\"rel=\\\"canonical\\\"\" && (body=\"onclick=\\\"getApp()\\\"\" || body=\"onclick=\\\"getAppVersionOne()\\\"\") && (body=\"src=\\\"js/myScript.js\\\"\" || body=\"src=\\\"assets/js/myScript.js\\\"\" || body=\"src=\\\"js/script.js\\\"\")`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Refined with the script files used by the phishing kit."
+              },
+              "response": []
+            }
+          ],
+          "description": "Source: *Practical FOFA Asset Expansion: APT-C-23 Android Malware*. Phishing download pages identified by HTML body structure. Fields stay free-tier (body as a returned field needs Business+, but body as a filter works)."
+        },
+        {
+          "name": "Silver Fox APT",
+          "item": [
+            {
+              "name": "Seed IP",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`ip=\"211.99.98.76\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Seed IP from the original report."
+              },
+              "response": []
+            },
+            {
+              "name": "Fake DingTalk desktop page (body)",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`body=\"钉钉电脑版\" && body=\"为企业解决办公协同问题\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Body text: 'DingTalk desktop' + 'solving enterprise office collaboration'."
+              },
+              "response": []
+            },
+            {
+              "name": "Fake Baidu Netdisk download page",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`title=\"百度网盘电脑版官方下载\" && body=\"模板\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Title: 'Baidu Netdisk desktop official download' + 'template' in body."
+              },
+              "response": []
+            },
+            {
+              "name": "Shared JS file + downapp",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`js_name=\"static/js/quanzhan.js\" && body=\"downapp\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Kit script `static/js/quanzhan.js` plus the downapp function."
+              },
+              "response": []
+            },
+            {
+              "name": "Fake DingTalk (app market title)",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`title=\"钉钉电脑版-鲁大师应用市场下载\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Title impersonating the Ludashi app market DingTalk page."
+              },
+              "response": []
+            },
+            {
+              "name": "Fake OBS screen recorder",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`title=\"OBS录屏⼤师 _官⽹_简单易⽤的超清录屏软件_电脑录屏⼤师\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Title impersonating an OBS screen recorder site (note the special Unicode characters copied from the original page)."
+              },
+              "response": []
+            },
+            {
+              "name": "JS hash + downapp + download vars",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`js_md5=\"a13f7f208ba534681deadb1ec7a2e54a\" && body=\"downapp\" && (body=\"count\" || body=\"fileUrl\")`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Kit JS MD5 plus downapp and count/fileUrl variables."
+              },
+              "response": []
+            },
+            {
+              "name": "Fake video editor",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`title=\"剪影·拍拍_官⽹_简单好⽤的视频剪辑软件_电脑视频剪辑\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Title impersonating a video editing software site."
+              },
+              "response": []
+            },
+            {
+              "name": "Domain naming pattern (fuzzy)",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`host*=\"*.lianhuawangluo??.xyz\" || host*=\"*.hehuashangwu??.xyz\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Generated domains: lianhuawangluo?? / hehuashangwu?? .xyz (fuzzy, Personal+)."
+              },
+              "response": []
+            },
+            {
+              "name": "Generic downapp payload pages",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`body=\"function downapp\" && (body=\"count\" || body=\"fileUrl\") && (body=\"exe\" || body=\"msi\" || body=\"zip\")`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Generic rule: downapp function serving exe/msi/zip."
+              },
+              "response": []
+            },
+            {
+              "name": "Kit FID",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`fid=\"VAaTqhs0Tw/lp4YjN7vWlw==\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "FOFA feature ID of the phishing kit."
+              },
+              "response": []
+            },
+            {
+              "name": "kiftd file server staging payloads",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`body=\"暗影⽹络⽂件传输系统 kiftd v1.1.0-RELEASE\" && body=\"票据服务\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "kiftd v1.1.0 file transfer system hosting 'invoice service' lures."
+              },
+              "response": []
+            }
+          ],
+          "description": "Source: *Practical FOFA Asset Expansion: Unmasking the Trail of the 'Silver Fox' APT*. Fake download sites impersonating Chinese software (DingTalk, Baidu Netdisk, OBS, video editors). The query values are kept in Chinese on purpose: they match the page text exactly."
+        },
+        {
+          "name": "Ducktail",
+          "item": [
+            {
+              "name": "Cloudflare C2 template",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`header=\"HTTP/1.1 404 Not Found\" && header=\"Server: cloudflare\" && icon_hash=\"\" && header=\"Transfer-Encoding: chunked\" && cert.issuer!=\"\" && cert.subject.org=\"\" && cert.issuer.cn!=\"\" && cert.is_valid=true && jarm=\"29d3dd00029d29d21c42d43d00041d44609a5a9a88e797f466e878a82e8365\" && body_hash=\"-1840324437\" && header!=\"X-Powered-By\" && header!=\"Strict-Transport-Security\" && header!=\"Pragma\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Cloudflare-fronted 404 C2 with valid cert, empty subject org, specific JARM and body hash, and no X-Powered-By/HSTS/Pragma headers."
+              },
+              "response": []
+            },
+            {
+              "name": "Cloudflare header_hash template",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`org=\"CLOUDFLARENET\" && icon_hash=\"\" && title=\"\" && header_hash=\"-2069571899\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Shorter variant by ASN org and header hash."
+              },
+              "response": []
+            },
+            {
+              "name": "IIS C2 template (verify /api/check)",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`header=\"404 Not Found\" && header=\"Transfer-Encoding: chunked\" && header=\"Server: Microsoft-IIS\" && icon_hash=\"\" && title=\"\" && header_hash=\"-324809210\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full=true&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "true"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "IIS-hosted C2 candidates (seed 138.201.8.186). High false-positive rate: verify each result for `/api/check` returning 200 with length 355."
+              },
+              "response": []
+            }
+          ],
+          "description": "Source: *Practical FOFA Asset Expansion: Ducktail*. C2 infrastructure behind Cloudflare and IIS. `header_hash` and `body_hash` filters need Personal+."
+        },
+        {
+          "name": "DeepSeek Impersonation",
+          "item": [
+            {
+              "name": "DeepSeek in host or title (websites)",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`(host=\"deepseek\" || title=\"deepseek\") && type=\"subdomain\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}},domain&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}},domain"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "`type=\"subdomain\"` limits results to website assets."
+              },
+              "response": []
+            },
+            {
+              "name": "Copied logo references",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`body=\"alt=\\\"DeepSeek Logo\\\"\" || body=\"cdn.deepseek.com/logo.png\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}},domain&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}},domain"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Pages embedding the official logo alt text or CDN URL."
+              },
+              "response": []
+            },
+            {
+              "name": "Copied logo + official favicon",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`(body=\"alt=\\\"DeepSeek Logo\\\"\" || body=\"cdn.deepseek.com/logo.png\") && icon_hash=\"-118645384\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}},domain&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}},domain"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Same as above, also using the official favicon hash."
+              },
+              "response": []
+            },
+            {
+              "name": "Copied footer / ICP text",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`body=\"2025 Hangzhou DeepSeek Artificial Intelligence Basic Technology Research Co., Ltd. All rights reserved\" || body=\"2025 DeepSeek. All rights reserved.\" || body=\"Zhejiang ICP No. 2023025841\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}},domain&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}},domain"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Cloned copyright footers or ICP registration number."
+              },
+              "response": []
+            },
+            {
+              "name": "Copied marketing text",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`body=\"DeepSeek-R1 is now live and open source, rivaling OpenAI's Model o1. Available on web, app, and API. Click for details.\" || body=\"DeepSeek-V3 achieves a significant breakthrough in inference speed over previous models.\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}},domain&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}},domain"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Cloned DeepSeek-R1 / V3 announcement text."
+              },
+              "response": []
+            },
+            {
+              "name": "Fake app download pages",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`body=\"Download DeepSeek App\" || title=\"DeepSeek App\" || body=\"Download DeepSeek App now to experience intelligent AI assistant.\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}},domain&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}},domain"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Pages offering a DeepSeek app download."
+              },
+              "response": []
+            },
+            {
+              "name": "Crypto / token scams",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`(title=\"deepseek\" || host=\"deepseek\") && (body=\"wallet\" || body=\"coin\" || body=\"Total supply\")`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}},domain&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}},domain"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "DeepSeek-branded pages mentioning wallets, coins or token supply."
+              },
+              "response": []
+            },
+            {
+              "name": "Overseas look-alikes (excluding deepseek.com)",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`title=\"deepseek\" && (region=\"HK\" || region=\"TW\" || country=\"US\" || country=\"ZA\" || country=\"SG\" || country=\"JP\") && domain!=\"deepseek.com\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}},domain&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}},domain"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "DeepSeek-titled sites hosted in HK, TW, US, ZA, SG or JP, excluding the official domain."
+              },
+              "response": []
+            }
+          ],
+          "description": "Source: *Practical Guide to Discovering DeepSeek Impersonation Assets Using FOFA*. Fake sites, cloned pages, fake app downloads and crypto scams using the DeepSeek brand."
+        },
+        {
+          "name": "Certificate Filtering",
+          "item": [
+            {
+              "name": "Trusted certificates only",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`cert=\"fofa.info\" && cert.is_valid=true`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Certificates for fofa.info issued by a trusted CA."
+              },
+              "response": []
+            },
+            {
+              "name": "Trusted + domain match",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`cert=\"fofa.info\" && cert.is_valid=true && cert.is_match=true`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Trusted certificates that also match the asset's domain: excludes unrelated assets."
+              },
+              "response": []
+            },
+            {
+              "name": "Trusted but not matching (bare-IP assets)",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`cert=\"abchina.com.cn\" && cert.is_valid=true && cert.is_match=false`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{intel_fields}}&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{intel_fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Trusted certificate but not matching the domain: usually your own assets exposed by IP."
+              },
+              "response": []
+            }
+          ],
+          "description": "Source: *How to effectively eliminate interference through certificates in the asset discovery*. Use `cert.is_valid` (trusted CA) and `cert.is_match` (cert matches the asset's domain) to separate your real assets from noise."
+        },
+        {
+          "name": "Supply Chain",
+          "item": [
+            {
+              "name": "Product by favicon hash",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`icon_hash=\"-247388890\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Example product fingerprint from the guide."
+              },
+              "response": []
+            },
+            {
+              "name": "Customer clustering by product title + country",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`title=\"Power Monitoring System\" && country=\"CN\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Locate deployments of a supplier product in one country."
+              },
+              "response": []
+            },
+            {
+              "name": "Customer clustering - stats by region/org",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`title=\"Power Monitoring System\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/stats?qbase64={{qbase64}}&fields=country,org,asn,domain,title",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "stats"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "country,org,asn,domain,title"
+                    }
+                  ]
+                },
+                "description": "Statistic Aggregation of the product query to rank where it is deployed."
+              },
+              "response": []
+            }
+          ],
+          "description": "Source: *Predators in the Supply Chain - Targeting Small and Medium Suppliers*. Fingerprint a supplier's product, then find its customers by region. Replace the sample values with your target."
+        },
+        {
+          "name": "Beginner's Guide",
+          "item": [
+            {
+              "name": "ChatGPT in title",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`title=\"chatgpt\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}}&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}}"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Simple title search."
+              },
+              "response": []
+            },
+            {
+              "name": "ChatGPT-Next-Web style UI (domain + valid cert)",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`body=\"loading-wrap\" && body=\"balls\" && is_domain=true && cert.is_valid=true`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}},domain&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}},domain"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Body markers of the loading spinner, only domain assets with a valid certificate."
+              },
+              "response": []
+            },
+            {
+              "name": "Same, limited to the US",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`body=\"loading-wrap\" && body=\"balls\" && is_domain=true && cert.is_valid=true && country=\"US\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields={{fields}},domain&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "{{fields}},domain"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Adds a country filter."
+              },
+              "response": []
+            }
+          ],
+          "description": "Source: *A Beginner's Guide*. Basic title/body searches and filters."
+        },
+        {
+          "name": "FofaHub Examples",
+          "item": [
+            {
+              "name": "Independent IP filter seed",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`domain==\"fofa.info\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields=host,ip,port,domain&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "host,ip,port,domain"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Exact domain match (`==`) used as input for the independent-IP workflow."
+              },
+              "response": []
+            },
+            {
+              "name": "Login discovery seed",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`domain=\"fedex.com\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields=host,ip,port,title,link&size={{size}}&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "host,ip,port,title,link"
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "Domain assets used as input for the login-page discovery workflow."
+              },
+              "response": []
+            },
+            {
+              "name": "Open site discovery by FID",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const q = String.raw`fid=\"qObSo5JrR9FIkIqprX7XKg==\"`;",
+                      "pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/search/all?qbase64={{qbase64}}&fields=host,ip,port,title,link&size=20&full={{full}}&r_type=json",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "search",
+                    "all"
+                  ],
+                  "query": [
+                    {
+                      "key": "qbase64",
+                      "value": "{{qbase64}}"
+                    },
+                    {
+                      "key": "fields",
+                      "value": "host,ip,port,title,link"
+                    },
+                    {
+                      "key": "size",
+                      "value": "20"
+                    },
+                    {
+                      "key": "full",
+                      "value": "{{full}}"
+                    },
+                    {
+                      "key": "r_type",
+                      "value": "json"
+                    }
+                  ]
+                },
+                "description": "FID cluster used in the open-site workflow example (hosts imported into FofaHub)."
+              },
+              "response": []
+            }
+          ],
+          "description": "Source: FofaHub docs (Filter Independent IP, Login Discovery, Open Site Discovery). The seed queries those workflows start from."
+        }
+      ],
+      "description": "Queries from the remaining English guides in Awesome-FOFA. The LLM, Ferret, Ecuador and open-directory articles show their queries only in screenshots or redact them, so they have no copyable syntax here."
+    }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{fofa_key}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "query",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Encode the plain-text 'query' variable to URL-safe Base64 (UTF-8) -> qbase64.",
+          "// Saved hunting requests override qbase64 in their own pre-request script.",
+          "const q = pm.variables.get('query');",
+          "if (q) {",
+          "  pm.variables.set('qbase64', encodeURIComponent(CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(q))));",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+          "let json;",
+          "try { json = pm.response.json(); } catch (e) { json = null; }",
+          "if (json) {",
+          "  pm.test('FOFA error = false', () => pm.expect(json.error, json.errmsg || '').to.eql(false));",
+          "  if (!json.error && json.query !== undefined) {",
+          "    console.log(`[${pm.info.requestName}] query: ${json.query} | total: ${json.size} | returned: ${(json.results || []).length}`);",
+          "  }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://en.fofa.info/api/v1"
+    },
+    {
+      "key": "query",
+      "value": "title=\"bing\""
+    },
+    {
+      "key": "qbase64",
+      "value": ""
+    },
+    {
+      "key": "fields",
+      "value": "host,ip,port,protocol,country,title,server"
+    },
+    {
+      "key": "intel_fields",
+      "value": "host,ip,port,protocol,domain,title,server,country,asn,org,jarm,cert.subject.cn,cert.issuer.cn,cert.not_before,cert.not_after,link"
+    },
+    {
+      "key": "size",
+      "value": "100"
+    },
+    {
+      "key": "page",
+      "value": "1"
+    },
+    {
+      "key": "full",
+      "value": "false"
+    },
+    {
+      "key": "next_id",
+      "value": ""
+    },
+    {
+      "key": "stats_fields",
+      "value": "title,country,port,protocol,server"
+    },
+    {
+      "key": "host",
+      "value": "78.48.50.249"
+    }
+  ]
+}
